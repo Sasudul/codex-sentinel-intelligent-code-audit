@@ -1,5 +1,5 @@
 """
-WSGI config for review_forge project.
+WSGI config for codex_sentinel project.
 
 It exposes the WSGI callable as a module-level variable named ``application``.
 
@@ -11,6 +11,6 @@ import os
 
 from django.core.wsgi import get_wsgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'review_forge.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'codex_sentinel.settings')
 
 application = get_wsgi_application()

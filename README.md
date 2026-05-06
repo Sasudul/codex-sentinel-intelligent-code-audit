@@ -73,5 +73,5 @@ An intelligent code review system built with Django that automatically analyzes 
 
 7. **Start the Celery Worker (In a separate terminal)**
    ```bash
-   celery -A review_forge worker -l info --pool=solo
+   celery -A codex_sentinel worker -l info --pool=solo
    ```
