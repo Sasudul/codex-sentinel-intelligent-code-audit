@@ -4,7 +4,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Repository, PullRequest, CodeReview
-from .github_service import verify_github_signature, fetch_pr_diff
+from .github_service import verify_github_signature
+from .tasks import process_pull_request_review
 
 class GitHubWebhookView(APIView):
     """
@@ -82,16 +83,11 @@ class GitHubWebhookView(APIView):
             status='pending'
         )
         
-        # In Step 4, we will trigger a Celery task here.
-        # For now, we will just fetch the diff directly as a placeholder to prove it works.
-        diff_text = fetch_pr_diff(repo_full_name, pr_number)
-        if diff_text:
-            code_review.summary = f"Fetched diff successfully. Lines: {len(diff_text.splitlines())}"
-            code_review.status = 'completed'
-        else:
-            code_review.summary = "Failed to fetch diff. Check API token."
-            code_review.status = 'failed'
-            
-        code_review.save()
+        # Offload the heavy work to a Celery background task
+        process_pull_request_review.delay(
+            code_review_id=code_review.id,
+            repo_full_name=repo_full_name,
+            pr_number=pr_number
+        )
         
         return Response({'message': 'Webhook processed successfully'}, status=status.HTTP_200_OK)
