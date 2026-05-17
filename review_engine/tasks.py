@@ -1,7 +1,8 @@
 from celery import shared_task
 from .models import CodeReview
 from .github_service import fetch_pr_diff
-from .static_analyzer import run_static_analysis
+from .static_analyzer import run_static_analysis, parse_diff, fetch_file_content
+from .security_analyzer import run_security_analysis
 
 @shared_task
 def process_pull_request_review(code_review_id, repo_full_name, pr_number):
@@ -22,8 +23,16 @@ def process_pull_request_review(code_review_id, repo_full_name, pr_number):
         commit_sha = code_review.commit_sha
         run_static_analysis(code_review, repo_full_name, commit_sha, diff_text)
         
-        # Placeholders for future steps (Security, AI)
-        # We will integrate these in Steps 6, 7
+        # Step 6: Security Analysis
+        changed_files = parse_diff(diff_text)
+        
+        def fetch_content_fn(file_path):
+            return fetch_file_content(repo_full_name, commit_sha, file_path)
+            
+        run_security_analysis(code_review, changed_files, fetch_content_fn)
+        
+        # Placeholders for future steps (AI)
+        # We will integrate these in Step 7
         
         code_review.summary = f"Diff fetched successfully. {len(diff_text.splitlines())} lines found."
         code_review.status = 'completed'

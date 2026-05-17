@@ -59,9 +59,9 @@ def run_flake8_on_file(file_content):
         
     issues = []
     try:
-        # Run flake8. It returns non-zero if issues are found.
+        # Run flake8 with McCabe complexity enabled.
         result = subprocess.run(
-            ['flake8', temp_path, '--format=%(row)d|%(code)s %(text)s'],
+            ['flake8', temp_path, '--max-complexity=10', '--format=%(row)d|%(code)s %(text)s'],
             capture_output=True,
             text=True
         )
@@ -74,10 +74,13 @@ def run_flake8_on_file(file_content):
                     line_num = int(parts[0])
                     msg = parts[1]
                     severity = 'error' if msg.startswith('E') or msg.startswith('F') else 'warning'
+                    category = 'complexity' if msg.startswith('C90') else 'style'
+                    
                     issues.append({
                         'line': line_num,
                         'message': f"Flake8: {msg}",
-                        'severity': severity
+                        'severity': severity,
+                        'category': category
                     })
                 except ValueError:
                     continue
@@ -111,5 +114,5 @@ def run_static_analysis(code_review, repo_full_name, commit_sha, diff_text):
                     line_number=issue['line'],
                     comment_text=issue['message'],
                     severity=issue['severity'],
-                    category='style'
+                    category=issue.get('category', 'style')
                 )
