@@ -30,7 +30,10 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-default-key')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
+
+# GitHub API Token — used by all GitHub API calls
+GITHUB_API_TOKEN = os.getenv('GITHUB_API_TOKEN', '')
 
 
 # Application definition
@@ -45,12 +48,14 @@ INSTALLED_APPS = [
     
     # Third-party
     'rest_framework',
+    'corsheaders',
     
     # Local
     'review_engine',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -156,3 +161,10 @@ CELERY_ACCEPT_CONTENT = ['application/json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+
+# CORS — allow the Electron desktop app to call our API
+CORS_ALLOW_ALL_ORIGINS = DEBUG  # Allow all in development
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+]
