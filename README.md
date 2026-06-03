@@ -1,77 +1,146 @@
 # Codex Sentinel
 
-An intelligent code review system built with Django that automatically analyzes GitHub pull requests and provides actionable feedback. It combines static code analysis, rule-based validation, and AI-powered insights to help developers improve code quality, security, and maintainability before merging.
+An intelligent, automated code review system that analyzes GitHub pull requests and posts actionable feedback — combining static analysis, security scanning, and AI-powered suggestions.
 
 ## 🎯 Features
 
-- **GitHub Integration**: Connect repositories via GitHub API & Webhooks.
-- **AI-Powered Review**: Suggest code improvements, detect anti-patterns, and provide human-readable explanations using OpenAI.
-- **Static Code Analysis**: Linting and complexity detection for multiple languages.
-- **Security Analysis**: Detects hardcoded secrets and highlights unsafe coding practices.
-- **Code Quality Scoring**: PR-level dashboard metrics for readability, complexity, and maintainability.
-- **Inline PR Comments**: Automatically posts human-readable, line-by-line feedback directly on GitHub Pull Requests.
+- **GitHub Webhooks** — real-time trigger on PR create/update
+- **Static Analysis** — Flake8 linting + McCabe complexity (Python)
+- **Security Scanning** — regex detection for hardcoded secrets, API keys, JWT tokens
+- **AI-Powered Review** — GPT-4o-mini sends structured JSON suggestions per file
+- **Quality Scoring** — weighted 0–100 score from all findings
+- **Inline PR Comments** — posts line-level comments + formatted summary card to GitHub
+- **Desktop App** — Electron dashboard to visualise repos, PRs, scores, and findings
 
-## 🏗️ Tech Stack
+## 🏗️ Architecture
 
-- **Backend**: Python / Django, Django REST Framework
-- **Task Queue**: Celery & Redis
-- **Database**: PostgreSQL
-- **Integrations**: GitHub API, OpenAI API
+```
+GitHub PR Event
+      │
+      ▼
+Django Webhook (/api/webhook/github/)
+      │   ← responds 200 immediately
+      ▼
+Celery Task (Redis queue)
+      ├── fetch PR diff (GitHub API)
+      ├── static_analyzer.py  (Flake8)
+      ├── security_analyzer.py (regex patterns)
+      ├── ai_reviewer.py      (OpenAI GPT-4o-mini)
+      ├── scorer.py           (weighted quality score)
+      └── pr_commenter.py     (post back to GitHub)
 
-## 🚀 Getting Started
+REST API (/api/*)  ◄──────  Electron Desktop App
+```
 
-### Prerequisites
-- Python 3.10+
-- PostgreSQL
-- Redis server
-- GitHub API Token
-- OpenAI API Key
+## 🛠️ Tech Stack
 
-### Installation
+| Layer | Technology |
+|---|---|
+| Backend | Python 3.11, Django 5, Django REST Framework |
+| Task Queue | Celery 5 + Redis |
+| Database | SQLite (dev) / PostgreSQL (prod) |
+| AI | OpenAI API (gpt-4o-mini) |
+| GitHub | Webhooks + REST API v3 |
+| Desktop | Electron 29 |
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd codex-sentinel-intelligent-code-audit
-   ```
+## 🚀 Quick Start
 
-2. **Set up the virtual environment**
-   ```bash
-   python -m venv venv
-   # On Windows
-   venv\Scripts\activate
-   # On macOS/Linux
-   source venv/bin/activate
-   ```
+### 1. Clone & environment
 
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+```bash
+git clone <repo-url>
+cd codex-sentinel-intelligent-code-audit
+python -m venv venv
+venv\Scripts\activate          # Windows
+# source venv/bin/activate    # macOS/Linux
+pip install -r requirements.txt
+```
 
-4. **Environment Variables**
-   Create a `.env` file in the project root with the following structure:
-   ```env
-   SECRET_KEY=your-django-secret-key
-   DEBUG=True
-   DATABASE_URL=postgres://user:password@localhost:5432/dbname
-   GITHUB_WEBHOOK_SECRET=your_github_webhook_secret
-   GITHUB_API_TOKEN=your_github_api_token
-   OPENAI_API_KEY=your_openai_api_key
-   REDIS_URL=redis://localhost:6379/0
-   ```
+### 2. Configure `.env`
 
-5. **Run Migrations**
-   ```bash
-   python manage.py migrate
-   ```
+Copy the template and fill in your tokens:
 
-6. **Start the Development Server**
-   ```bash
-   python manage.py runserver
-   ```
+```env
+SECRET_KEY=your-django-secret-key
+DEBUG=True
+DATABASE_URL=postgres://user:pass@localhost:5432/codex_sentinel   # optional, SQLite used if omitted
+GITHUB_WEBHOOK_SECRET=your_github_webhook_secret
+GITHUB_API_TOKEN=your_github_personal_access_token
+OPENAI_API_KEY=your_openai_api_key
+REDIS_URL=redis://localhost:6379/0
+```
 
-7. **Start the Celery Worker (In a separate terminal)**
-   ```bash
-   celery -A codex_sentinel worker -l info --pool=solo
-   ```
+### 3. Migrate & run
+
+```bash
+python manage.py migrate
+python manage.py runserver
+```
+
+In a **second terminal** (with venv active):
+
+```bash
+celery -A codex_sentinel worker -l info --pool=solo
+```
+
+### 4. GitHub Webhook setup
+
+In your GitHub repository → **Settings → Webhooks → Add webhook**:
+- **Payload URL**: `http://<your-server>/api/webhook/github/`
+- **Content type**: `application/json`
+- **Secret**: same as `GITHUB_WEBHOOK_SECRET`
+- **Events**: ✅ Pull requests
+
+> For local development use [ngrok](https://ngrok.com): `ngrok http 8000`
+
+### 5. Desktop App
+
+```bash
+cd desktop
+npm install
+npm start
+```
+
+Configure the Backend URL in **Settings** (default: `http://localhost:8000`).
+
+## 📡 API Endpoints
+
+| Method | URL | Description |
+|---|---|---|
+| `POST` | `/api/webhook/github/` | GitHub webhook receiver |
+| `GET` | `/api/dashboard/stats/` | Aggregate metrics |
+| `GET` | `/api/repositories/` | All connected repos |
+| `GET` | `/api/repositories/<id>/pull-requests/` | PRs for a repo |
+| `GET` | `/api/pull-requests/<id>/` | PR detail |
+| `GET` | `/api/reviews/<id>/` | Review detail with comments |
+
+## 📁 Project Structure
+
+```
+codex-sentinel-intelligent-code-audit/
+├── codex_sentinel/          # Django project config
+│   ├── settings.py
+│   ├── celery.py
+│   └── urls.py
+├── review_engine/           # Core Django app
+│   ├── models.py            # Repository, PullRequest, CodeReview, Comment
+│   ├── views.py             # Webhook + Dashboard REST API
+│   ├── serializers.py       # DRF serializers
+│   ├── tasks.py             # Celery pipeline orchestration
+│   ├── github_service.py    # GitHub API helpers
+│   ├── static_analyzer.py   # Flake8 + diff parsing
+│   ├── security_analyzer.py # Secret detection
+│   ├── ai_reviewer.py       # OpenAI review
+│   ├── scorer.py            # Quality scoring
+│   └── pr_commenter.py      # GitHub PR commenting
+├── desktop/                 # Electron desktop app
+│   ├── main.js
+│   ├── preload.js
+│   └── renderer/
+│       ├── index.html
+│       ├── styles.css
+│       └── app.js
+├── requirements.txt
+├── .env                     # (gitignored)
+└── README.md
+```
